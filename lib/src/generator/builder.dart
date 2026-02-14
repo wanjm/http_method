@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:analyzer/dart/analysis/results.dart';
+import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
@@ -107,13 +109,54 @@ class NetworkBuilder extends GeneratorForAnnotation<DataInterface> {
     return buffer.toString();
   }
 
+  /// Returns the URL expression for generated code: variable name (e.g. loginUrl)
+  /// when the annotation uses a constant reference, or quoted string when literal.
+  String _getUrlExpression(MethodElement f, ConstantReader reader, TypeChecker reqConfigChecker) {
+    final stringValue = reader.read("url").stringValue;
+    final session = f.session;
+    final library = f.library;
+    if (library == null) {
+      return '"$stringValue"';
+    }
+
+    final parsed = session?.getParsedLibraryByElement(library);
+    if (parsed is! ParsedLibraryResult) return '"$stringValue"';
+
+    final parsedLib = parsed as ParsedLibraryResult;
+    final declResult = parsedLib.getFragmentDeclaration(f.firstFragment);
+    if (declResult == null) return '"$stringValue"';
+
+    final methodNode = declResult.node;
+    if (methodNode is! MethodDeclaration) return '"$stringValue"';
+
+    for (final annotation in methodNode.metadata) {
+      final name = annotation.name;
+      final isReqConfig = name is SimpleIdentifier && name.name == 'ReqConfig' ||
+          name is PrefixedIdentifier && name.identifier.name == 'ReqConfig';
+      if (!isReqConfig) continue;
+
+      final args = annotation.arguments?.arguments;
+      if (args == null || args.isEmpty) break;
+
+      final firstArg = args.first;
+      if (firstArg is SimpleIdentifier || firstArg is PrefixedIdentifier) {
+        final content = declResult.parsedUnit?.content;
+        if (content != null) {
+          return content.substring(firstArg.offset, firstArg.end);
+        }
+      }
+      break;
+    }
+    return '"$stringValue"';
+  }
+
   _MethodData? _processMethod(MethodElement f) {
     TypeChecker reqConfigChecker = TypeChecker.typeNamed(ReqConfig);
     final reqConfigAnnotation = reqConfigChecker.firstAnnotationOf(f);
     if (reqConfigAnnotation == null) return null;
 
     final reader = ConstantReader(reqConfigAnnotation);
-    final url = reader.read("url").stringValue;
+    final urlExpr = _getUrlExpression(f, reader, reqConfigChecker);
     final returnType = f.returnType;
     if (returnType is! InterfaceType) return null;
     if (returnType.typeArguments.isEmpty) return null;
@@ -208,7 +251,7 @@ class NetworkBuilder extends GeneratorForAnnotation<DataInterface> {
     final firstParam = paramsList.isNotEmpty ? paramsList[0].name : "null";
     final secondParam = paramsList.length > 1 ? (paramsList[1]).name : "false";
 
-    final bufferString = noDetailData ? "" : "buffer: bufferMap[\"$url\"] as ClassBuffer<$keyTypeString, $respName>?,";
+    final bufferString = noDetailData ? "" : "buffer: bufferMap[$urlExpr] as ClassBuffer<$keyTypeString, $respName>?,";
     final methodString = reqMethod != "POST" ? "method: \"$reqMethod\"," : "";
     final slientString = secondParam != "false" ? "slient: $secondParam," : "";
 
@@ -217,7 +260,7 @@ class NetworkBuilder extends GeneratorForAnnotation<DataInterface> {
   $methodDisplayString=> getData(
         data: $firstParam,
         $slientString
-        url: "$url",
+        url: $urlExpr,
         $bufferString
         $methodString
         encodeDataFunction: (RespData resp) {
