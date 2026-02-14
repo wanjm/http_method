@@ -16,6 +16,12 @@ abstract class HttpClientBase extends HttpClient {
   }
 
   @override
+  Map<String, dynamic> standardData(String url,  jsonMap) {
+    return jsonMap;
+  }
+
+
+  @override
   Future<Response?> sendReq(String url, ReqInfo params, String method) async {
     var body = params.content;
     var headers = getHeaders();

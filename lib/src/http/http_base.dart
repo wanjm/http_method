@@ -13,7 +13,8 @@ abstract class HttpClient {
   set prefix(String prefix);
   Map<String, String> getHeaders() => <String, String>{};
   int checkResult(RespData a, String url, Map<String, String> headers);
-  Future<Response?>? sendReq(String url, ReqInfo params, String method);
+  Future<Response?>? sendReq(String url, ReqInfo params, String method);  // RespData encodeData(String url, RespData resp);
+  Map<String, dynamic> standardData(String url,  dynamic jsonMap);
   void close() {}
 }
 
@@ -28,14 +29,15 @@ String buildUrl(String url, List<String> paramsters) {
 }
 
 abstract class BaseMethod {
-  HttpClient? client;
-  BaseMethod({this.client});
-  Future<RespData<T>> sendReq<T>(String url, dynamic params, String method, bool slient) async {
+  HttpClient client;
+  BaseMethod({required this.client});
+  Future<RespData<T>> sendReq<T>(String rawUrl, dynamic params, String method, bool slient) async {
     ReqInfo info;
+    String url = rawUrl;
     if (params is RequestAbleParameter) {
       info = await params.getReqInfo();
       if (info.urlParameters != null) {
-        url = buildUrl(url, info.urlParameters!);
+        url = buildUrl(rawUrl, info.urlParameters!);
       }
     } else {
       if (method == "GET") {
@@ -43,14 +45,14 @@ abstract class BaseMethod {
           params = params.toJson();
         }
         if (params is Map<String, dynamic>) {
-          url = "$url?${makeQuery(params)}";
+          url = "$rawUrl?${makeQuery(params)}";
         }
         info = ReqInfo(contentType: URLENCODED);
       } else {
         info = ReqInfo(contentType: JSONTYPE, content: params == null ? "{}" : json.encode(params));
       }
     }
-    var response = await client!.sendReq(url, info, method);
+    var response = await client.sendReq(url, info, method);
     RespData<T> res;
     if (response == null) {
       //网络错误; //没有服务器返回结果;
@@ -58,7 +60,7 @@ abstract class BaseMethod {
     } else if (response.status == 200 && (T != dynamic || response.contentType!.contains("json"))) {
       var jsonMap = json.decode(response.body!);
       //if (jsonMap["code"] == 0) {
-      jsonMap = standardData(url, jsonMap); //将服务器返回的数据标准化;
+      jsonMap = client.standardData(rawUrl, jsonMap); //将服务器返回的数据标准化;
       //}
       res = RespData.fromJson(jsonMap);
     } else {
@@ -100,10 +102,6 @@ abstract class BaseMethod {
     //return this.dealData(resp);
   }
 
-  // RespData encodeData(String url, RespData resp);
-  Map<String, dynamic> standardData(String url, Map<String, dynamic> jsonMap) {
-    return jsonMap;
-  }
 
   //Future<RespData> dealData(Invocation invocation,RespData<dynamic> resp);
 }

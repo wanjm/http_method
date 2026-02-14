@@ -88,7 +88,7 @@ class NetworkBuilder extends GeneratorForAnnotation<DataInterface> {
     }
 
     buffer.writeln("class $clsName extends BaseMethod $withMixin implements $ifName {");
-    buffer.writeln("  $clsName({super.client});");
+    buffer.writeln("  $clsName({required super.client});");
     buffer.writeln();
     buffer.writeln("  ${methods.join("\n\n  ")}");
     buffer.writeln("}");
