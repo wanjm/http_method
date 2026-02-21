@@ -177,6 +177,7 @@ class NetworkBuilder extends GeneratorForAnnotation<DataInterface> {
         innerRespType is VoidType || innerRespType is DynamicType;
 
     String respName = "";
+    String innerRespTypeString = "";
     String formatCode;
 
     if (noDetailData) {
@@ -185,7 +186,8 @@ class NetworkBuilder extends GeneratorForAnnotation<DataInterface> {
     } else {
       // Handle non-dynamic types
       if (innerRespType is! InterfaceType) return null;
-
+      innerRespTypeString =
+          innerRespType.getDisplayString(withNullability: false);
       final innerRespTypeInterface = innerRespType;
       InterfaceType? realRespType;
       int? resultType;
@@ -262,7 +264,7 @@ class NetworkBuilder extends GeneratorForAnnotation<DataInterface> {
 
     final bufferString = noDetailData
         ? ""
-        : "buffer: bufferMap[$urlExpr] as ClassBuffer<$keyTypeString, $respName>?,";
+        : "buffer: bufferMap[$urlExpr] as ClassBuffer<$keyTypeString, $innerRespTypeString>?,";
     final methodString = reqMethod != "POST" ? "method: \"$reqMethod\"," : "";
     final slientString = secondParam != "false" ? "slient: $secondParam," : "";
 
