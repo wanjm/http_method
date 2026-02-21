@@ -9,12 +9,14 @@ import 'http_buffer.dart';
 export 'http_buffer.dart';
 
 abstract class HttpClient {
-  HttpClient();
+  Duration timeout;
+  HttpClient({this.timeout = const Duration(seconds: 30)});
   set prefix(String prefix);
   Map<String, String> getHeaders() => <String, String>{};
   int checkResult(RespData a, String url, Map<String, String> headers);
-  Future<Response?>? sendReq(String url, ReqInfo params, String method);  // RespData encodeData(String url, RespData resp);
-  Map<String, dynamic> standardData(String url,  dynamic jsonMap);
+  Future<Response?>? sendReq(String url, ReqInfo params,
+      String method); // RespData encodeData(String url, RespData resp);
+  Map<String, dynamic> standardData(String url, dynamic jsonMap);
   void close() {}
 }
 
@@ -31,7 +33,8 @@ String buildUrl(String url, List<String> paramsters) {
 abstract class BaseMethod {
   HttpClient client;
   BaseMethod({required this.client});
-  Future<RespData<T>> sendReq<T>(String rawUrl, dynamic params, String method, bool slient) async {
+  Future<RespData<T>> sendReq<T>(
+      String rawUrl, dynamic params, String method, bool slient) async {
     ReqInfo info;
     String url = rawUrl;
     if (params is RequestAbleParameter) {
@@ -49,7 +52,9 @@ abstract class BaseMethod {
         }
         info = ReqInfo(contentType: URLENCODED);
       } else {
-        info = ReqInfo(contentType: JSONTYPE, content: params == null ? "{}" : json.encode(params));
+        info = ReqInfo(
+            contentType: JSONTYPE,
+            content: params == null ? "{}" : json.encode(params));
       }
     }
     var response = await client.sendReq(url, info, method);
@@ -57,7 +62,8 @@ abstract class BaseMethod {
     if (response == null) {
       //网络错误; //没有服务器返回结果;
       res = RespData(code: RespCode.NETWORK_ERROR);
-    } else if (response.status == 200 && (T != dynamic || response.contentType!.contains("json"))) {
+    } else if (response.status == 200 &&
+        (T != dynamic || response.contentType!.contains("json"))) {
       var jsonMap = json.decode(response.body!);
       //if (jsonMap["code"] == 0) {
       jsonMap = client.standardData(rawUrl, jsonMap); //将服务器返回的数据标准化;
@@ -67,14 +73,14 @@ abstract class BaseMethod {
       return RespData.raw(response);
     }
     if (!slient) {
-      client!.checkResult(res, url, response?.headers ?? <String, String>{});
+      client.checkResult(res, url, response?.headers ?? <String, String>{});
     }
     return res;
   }
 
   Future<RespData<VT?>> getData<KT, VT>({
     dynamic data,
-    bool slient=false,
+    bool slient = false,
     required String url,
     required Function(RespData resp) encodeDataFunction,
     ClassBuffer<KT, VT>? buffer,
@@ -101,7 +107,6 @@ abstract class BaseMethod {
     return resp;
     //return this.dealData(resp);
   }
-
 
   //Future<RespData> dealData(Invocation invocation,RespData<dynamic> resp);
 }

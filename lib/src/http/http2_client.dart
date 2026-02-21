@@ -21,7 +21,7 @@ abstract class HttpClientBase extends HttpClient {
   // int? id;
   late String _prefix;
   //  Map<int, DateTime> wait;
-  HttpClientBase() : super();
+  HttpClientBase({super.timeout});
   @override
   set prefix(String prefix) {
     var uri = Uri.parse(prefix);
@@ -39,19 +39,25 @@ abstract class HttpClientBase extends HttpClient {
         log.debug("PlasoHttp2Client@setUpTransport: use exist transport", null);
         return;
       } else {
-        log.error("PlasoHttp2Client@setUpTransport: transport exist but not open", null);
+        log.error(
+            "PlasoHttp2Client@setUpTransport: transport exist but not open",
+            null);
       }
     }
     log.debug("PlasoHttp2Client@setUpTransport: set up transport", null);
     //todo 域名解析异常;
     try {
-      transport = ClientTransportConnection.viaSocket(await SecureSocket.connect(host, port, supportedProtocols: ['h2']));
+      transport = ClientTransportConnection.viaSocket(
+          await SecureSocket.connect(host, port, supportedProtocols: ['h2']));
     } catch (e, stack) {
-      log.error("PlasoHttp2Client@setUpTransport: catch $e in setUpTransport: $stack", null);
+      log.error(
+          "PlasoHttp2Client@setUpTransport: catch $e in setUpTransport: $stack",
+          null);
       transport = null;
     }
 
-    log.info("PlasoHttp2Client@setUpTransport: set up transport finished", null);
+    log.info(
+        "PlasoHttp2Client@setUpTransport: set up transport finished", null);
   }
 
   List<Header> initHeader(String url, ReqInfo params) {
@@ -109,7 +115,6 @@ abstract class HttpClientBase extends HttpClient {
       log.error("PlasoHttp2Client@sendReq: transport is null", null);
       return null;
     }
-    //目前没有找到设置timeout的参数;
     var stream = transport!.makeRequest(initHeader(url, params));
     log.debug('PlasoHttp2Client@sendReq: will send $url', null);
     stream.sendData(Utf8Encoder().convert(params.content), endStream: true);
@@ -123,13 +128,15 @@ abstract class HttpClientBase extends HttpClient {
     // StreamException (StreamException(stream id: 11): Remote end was telling us to stop. This stream was not processed and can therefore be retried (on a new connection).)
     try {
       log.debug('PlasoHttp2Client@sendReq: wait for response', null);
-      await for (var message in stream.incomingMessages) {
+      await for (var message in stream.incomingMessages.timeout(timeout)) {
         if (message is HeadersStreamMessage) {
           for (var header in message.headers) {
             var name = utf8.decode(header.name);
             var a = DateTime.now();
             if (a.difference(now) > Duration(seconds: 10)) {
-              log.debug("PlasoHttp2Client@sendReq: $name=${utf8.decode(header.value)}", null);
+              log.debug(
+                  "PlasoHttp2Client@sendReq: $name=${utf8.decode(header.value)}",
+                  null);
             }
             if (name == "content-type") {
               contentType = utf8.decode(header.value);
@@ -158,7 +165,8 @@ abstract class HttpClientBase extends HttpClient {
     //  }
     var resbody = Utf8Decoder().convert(messages);
     log.debug("PlasoHttp2Client@sendReq: response: $resbody", null);
-    return Response(body: resbody, contentType: contentType, status: int.parse(status));
+    return Response(
+        body: resbody, contentType: contentType, status: int.parse(status));
   }
 
   @override
